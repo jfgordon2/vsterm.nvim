@@ -1,6 +1,9 @@
 # VSterm.nvim
 
-A Neovim plugin that provides a VSCode-like terminal management experience with a terminal panel at the bottom of the screen and a terminal list for easy switching.
+A Neovim plugin that provides a toggle-able VSCode-like terminal management experience, with a terminal panel at the bottom of the screen and a terminal list for easy switching, but with the benefits of key maps and Neovim.
+
+![image](https://github.com/user-attachments/assets/df395abd-f8da-401f-b786-ede877de0c63)
+
 
 ## Features
 
@@ -102,6 +105,9 @@ When `number_prefix` is set (e.g., to `"<leader>v"`), the plugin will automatica
 
 These keymaps are dynamically updated as terminals are created and destroyed, always matching the order shown in the terminal list.
 
+![image](https://github.com/user-attachments/assets/934922ee-5ffb-49e1-b8e0-6801af2a1236)
+
+
 ### Mouse Support
 
 When `enable_mouse` is set to `true`, you can:
@@ -120,7 +126,4 @@ When the terminal list window is focused, you can use:
 - `?` - Show help for terminal list commands
 - Mouse click - Switch to clicked terminal
 
-## License
-
-MIT
-
+![image](https://github.com/user-attachments/assets/6d7bf2b1-0a11-45b3-b018-0fce454061fc)
