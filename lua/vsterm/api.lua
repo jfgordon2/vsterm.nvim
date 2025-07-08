@@ -170,7 +170,7 @@ local function setup_terminal_buffer_keymaps()
       vim.cmd("edit " .. vim.fn.fnameescape(filename))
     end
   end
-  -- ~/Documents/obsidian/CMS/Resources.md:100:100
+
   -- Function for opening file with line number in original window
   function api.open_file_with_line_in_original_win()
     local ui = require "vsterm.ui"
