@@ -1,5 +1,9 @@
 # VSterm.nvim Changelog
 
+### 2025-07-08
+
+- Added gf/gF support to open files in the originating window instead of the terminal buffer
+
 ## Usage
 
 ### Quick Setup
