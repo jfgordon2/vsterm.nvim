@@ -68,6 +68,10 @@ local function ensure_terminal_buffer(term)
     vim.api.nvim_set_option_value("bufhidden", "hide", { buf = term.bufnr })
     vim.api.nvim_set_option_value("buflisted", false, { buf = term.bufnr })
 
+    -- Set up terminal-specific keymaps
+    local api = require "vsterm.api"
+    api.set_terminal_keymaps()
+
     -- Go back to original window
     vim.api.nvim_set_current_win(old_win)
   else
@@ -346,6 +350,20 @@ function M.get_main_window()
   return main_win
 end
 
+---Get the original window
+---@return number|nil
+function M.get_original_window()
+  return original_win
+end
+
+---Set the original window
+---@param win_id number Window ID
+function M.set_original_window(win_id)
+  if win_id and vim.api.nvim_win_is_valid(win_id) then
+    original_win = win_id
+  end
+end
+
 ---Refresh the terminal UI
 function M.refresh()
   if not state.is_visible() then
@@ -386,8 +404,10 @@ function M.refresh()
       term_list_buf = nil
     end
 
-    -- Recreate the layout fresh
+    -- Recreate the layout fresh, but preserve the original_win
+    local saved_original_win = original_win
     create_layout()
+    original_win = saved_original_win
     return
   end
 
