@@ -127,8 +127,8 @@ end
 
 ---Setup terminal buffer specific keymaps
 local function setup_terminal_buffer_keymaps()
-  -- Global function for opening file in original window
-  function _G.open_file_in_original_win()
+  -- Function for opening file in original window
+  function api.open_file_in_original_win()
     local ui = require "vsterm.ui"
     local original_win = ui.get_original_window()
     local filename = vim.fn.expand "<cfile>"
@@ -158,8 +158,8 @@ local function setup_terminal_buffer_keymaps()
     end
   end
 
-  -- Global function for opening file with line number in original window
-  function _G.open_file_with_line_in_original_win()
+  -- Function for opening file with line number in original window
+  function api.open_file_with_line_in_original_win()
     local ui = require "vsterm.ui"
     local original_win = ui.get_original_window()
 
@@ -228,13 +228,13 @@ function api.set_terminal_keymaps()
     vim.keymap.set(
       "n",
       "gf",
-      "<cmd>lua open_file_in_original_win()<CR>",
+      "<cmd>lua require('vsterm.api').open_file_in_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file in original window" }
     )
     vim.keymap.set(
       "n",
       "gF",
-      "<cmd>lua open_file_with_line_in_original_win()<CR>",
+      "<cmd>lua require('vsterm.api').open_file_with_line_in_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file with line in original window" }
     )
 
@@ -242,13 +242,13 @@ function api.set_terminal_keymaps()
     vim.keymap.set(
       "t",
       "gf",
-      "<C-\\><C-n>:lua open_file_in_original_win()<CR>",
+      "<C-\\><C-n>:lua require('vsterm.api').open_file_in_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file in original window" }
     )
     vim.keymap.set(
       "t",
       "gF",
-      "<C-\\><C-n>:lua open_file_with_line_in_original_win()<CR>",
+      "<C-\\><C-n>:lua require('vsterm.api').open_file_with_line_in_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file with line in original window" }
     )
   end
