@@ -125,7 +125,6 @@ local function setup_keymaps()
   end
 end
 
-=======
 local function is_valid_file(filename)
   if not filename or filename == "" then
     return false
@@ -172,7 +171,6 @@ local function setup_terminal_buffer_keymaps()
     end
   end
   -- ~/Documents/obsidian/CMS/Resources.md:100:100
-
   -- Function for opening file with line number in original window
   function api.open_file_with_line_in_original_win()
     local ui = require "vsterm.ui"
@@ -181,8 +179,6 @@ local function setup_terminal_buffer_keymaps()
     -- Extract filename and line number
     local filename = vim.fn.expand "<cfile>"
     local line = vim.fn.getline "."
-    -- Extract filename and line number using vim's built-in gF logic
-    local filename = vim.fn.expand "<cfile>"
     local cword = vim.fn.expand "<cWORD>"
 
     if filename == "" then
@@ -207,25 +203,6 @@ local function setup_terminal_buffer_keymaps()
           line_num = tonumber(num_str)
         end
       end
-    -- Try to find line number after the filename
-    local line_num = nil
-    -- Look for pattern like "filename:123" or "filename:123:456"
-    local colon_pos = cword:find ":"
-    if colon_pos then
-      local after_colon = cword:sub(colon_pos + 1)
-      -- Extract just the digits at the beginning
-      local digits = ""
-      for i = 1, #after_colon do
-        local char = after_colon:sub(i, i)
-        if char >= "0" and char <= "9" then
-          digits = digits .. char
-        else
-          break
-        end
-      end
-      if digits ~= "" then
-        line_num = digits
-      end
     end
 
     if not original_win or not vim.api.nvim_win_is_valid(original_win) then
@@ -248,10 +225,6 @@ local function setup_terminal_buffer_keymaps()
       vim.cmd("edit " .. vim.fn.fnameescape(filename))
       if line_num then
         vim.api.nvim_win_set_cursor(original_win, { line_num, 0 })
-      if line_num then
-        vim.cmd("+" .. line_num .. " edit " .. vim.fn.fnameescape(filename))
-      else
-        vim.cmd("edit " .. vim.fn.fnameescape(filename))
       end
     end
   end
