@@ -1,4 +1,4 @@
-# VSterm.nvim Changelog
+# VSTerm.nvim Changelog
 
 ### 2025-07-08
 
@@ -30,7 +30,7 @@ require("vsterm").setup({
 - `:VSTermKill` - Kill current terminal
 - `:VSTermRename [name]` - Rename current terminal
 
-### Expected Layout
+### Layout
 
 ```txt
 ┌─────────────────────────────────────────┐
