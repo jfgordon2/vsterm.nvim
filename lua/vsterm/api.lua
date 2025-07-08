@@ -125,6 +125,14 @@ local function setup_keymaps()
   end
 end
 
+local function is_valid_file(filename)
+  if not filename or filename == "" then
+    return false
+  end
+  local ok, stat = pcall(vim.uv.fs_stat, filename)
+  return ok and stat and stat.type == "file"
+end
+
 ---Setup terminal buffer specific keymaps
 local function setup_terminal_buffer_keymaps()
   -- Function for opening file in original window
@@ -134,6 +142,11 @@ local function setup_terminal_buffer_keymaps()
     local filename = vim.fn.expand "<cfile>"
 
     if filename == "" then
+      return
+    end
+
+    if not is_valid_file(filename) then
+      vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
       return
     end
 
@@ -163,32 +176,32 @@ local function setup_terminal_buffer_keymaps()
     local ui = require "vsterm.ui"
     local original_win = ui.get_original_window()
 
-    -- Extract filename and line number using vim's built-in gF logic
+    -- Extract filename and line number
     local filename = vim.fn.expand "<cfile>"
+    local line = vim.fn.getline "."
     local cword = vim.fn.expand "<cWORD>"
 
     if filename == "" then
       return
     end
 
-    -- Try to find line number after the filename
+    if not is_valid_file(filename) then
+      vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
+      return
+    end
+
+    -- Look for line_num immediately after the filename in line
     local line_num = nil
-    -- Look for pattern like "filename:123" or "filename:123:456"
-    local colon_pos = cword:find ":"
-    if colon_pos then
-      local after_colon = cword:sub(colon_pos + 1)
-      -- Extract just the digits at the beginning
-      local digits = ""
-      for i = 1, #after_colon do
-        local char = after_colon:sub(i, i)
-        if char >= "0" and char <= "9" then
-          digits = digits .. char
-        else
-          break
+    local path_end = line:find(filename)
+    if path_end then
+      local rest_of_line = line:sub(path_end + #filename + 1)
+      -- Check if the next character is a colon followed by digits
+      local colon_pos = rest_of_line:find ":"
+      if colon_pos then
+        local num_str = rest_of_line:sub(0, colon_pos):match "^%d+"
+        if num_str then
+          line_num = tonumber(num_str)
         end
-      end
-      if digits ~= "" then
-        line_num = digits
       end
     end
 
@@ -209,10 +222,9 @@ local function setup_terminal_buffer_keymaps()
 
     if original_win and vim.api.nvim_win_is_valid(original_win) then
       vim.api.nvim_set_current_win(original_win)
+      vim.cmd("edit " .. vim.fn.fnameescape(filename))
       if line_num then
-        vim.cmd("+" .. line_num .. " edit " .. vim.fn.fnameescape(filename))
-      else
-        vim.cmd("edit " .. vim.fn.fnameescape(filename))
+        vim.api.nvim_win_set_cursor(original_win, { line_num, 0 })
       end
     end
   end
