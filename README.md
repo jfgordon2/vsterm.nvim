@@ -1,4 +1,4 @@
-# VSterm.nvim
+# VSTerm.nvim
 
 A Neovim plugin that provides a toggle-able VSCode-like terminal management experience, with a terminal panel at the bottom of the screen and a terminal list for easy switching, but with the benefits of key maps and Neovim.
 
@@ -15,6 +15,9 @@ A Neovim plugin that provides a toggle-able VSCode-like terminal management expe
 - **Terminal management** - Create, rename, and delete terminals
 - **Configurable** - Customize height, width, keybindings, and appearance
 
+- **Other Convenience Features**
+  - gf/gF will open file paths in your main editor window instead of the terminal buffer
+
 ## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -22,17 +25,12 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 {
   "jfgordon2/vsterm.nvim",
-  config = function()
-    require("vsterm").setup({
-      -- Optional configuration
-      height = 0.3, -- 30% of window height
-      default_name = "Terminal %d",
-      shell = vim.o.shell,
-      direction = "horizontal",
-      position = "bottom",
-      list_width = 30,
-    })
-  end,
+  opt = {
+    -- Optional configuration
+    height = 0.3, -- 30% of window height
+    default_name = "Terminal %d",
+    list_width = 30,
+  }
 }
 ```
 
@@ -65,17 +63,8 @@ require("vsterm").setup({
   -- Shell to use (nil for default)
   shell = nil,
   
-  -- Direction to split the terminal
-  direction = "horizontal",
-  
-  -- Position of the terminal window
-  position = "bottom",
-  
   -- Width of the terminal list (in characters)
   list_width = 25,
-  
-  -- Automatically scroll to bottom on terminal output
-  auto_scroll = true,
   
   -- Enable mouse support for terminal list
   enable_mouse = true,
