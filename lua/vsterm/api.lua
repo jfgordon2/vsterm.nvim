@@ -3,12 +3,12 @@ local state = require "vsterm.state"
 local ui = require "vsterm.ui"
 local utils = require "vsterm.utils"
 
-local api = {}
+local M = {}
 
 ---Create a new terminal
 ---@param name string|nil Optional name for the terminal
 ---@return number terminal_id
-function api.create_terminal(name)
+function M.create_terminal(name)
   -- Ensure setup has been called
   if not state.get_current_terminal() and #state.get_terminals() == 0 then
     state.init()
@@ -30,7 +30,7 @@ function api.create_terminal(name)
 end
 
 ---Toggle the terminal window
-function api.toggle()
+function M.toggle()
   if state.is_visible() then
     ui.hide()
   else
@@ -48,7 +48,7 @@ end
 
 ---Kill the current or specified terminal
 ---@param term_id number|nil Terminal ID to kill (current if nil)
-function api.kill_terminal(term_id)
+function M.kill_terminal(term_id)
   local id_to_kill = term_id or state.get_current_terminal()
   if not id_to_kill then
     return
@@ -75,7 +75,7 @@ end
 ---Rename the current or specified terminal
 ---@param new_name string New name for the terminal
 ---@param term_id number|nil Terminal ID to rename (current if nil)
-function api.rename_terminal(new_name, term_id)
+function M.rename_terminal(new_name, term_id)
   term_id = term_id or state.get_current_terminal()
   if not term_id then
     vim.notify("No terminal to rename", vim.log.levels.WARN)
@@ -87,7 +87,7 @@ end
 
 ---Switch to a specific terminal
 ---@param term_id number Terminal ID to switch to
-function api.switch_terminal(term_id)
+function M.switch_terminal(term_id)
   state.set_current_terminal(term_id)
   ui.refresh()
   if state.is_visible() then
@@ -97,13 +97,13 @@ end
 
 ---Get a list of all terminals
 ---@return Terminal[]
-function api.get_terminals()
+function M.get_terminals()
   return state.get_terminals()
 end
 
 ---Get the current terminal
 ---@return Terminal|nil
-function api.get_current_terminal()
+function M.get_current_terminal()
   local id = state.get_current_terminal()
   return id and state.get_terminal(id) or nil
 end
@@ -118,13 +118,13 @@ local function setup_keymaps()
 
   local maps = config.options.mappings
   if maps then
-    set_keymap("n", maps.toggle, api.toggle, "Toggle terminal window")
-    set_keymap("n", maps.new, api.create_terminal, "Create new terminal")
-    set_keymap("n", maps.kill, api.kill_terminal, "Kill current terminal")
+    set_keymap("n", maps.toggle, M.toggle, "Toggle terminal window")
+    set_keymap("n", maps.new, M.create_terminal, "Create new terminal")
+    set_keymap("n", maps.kill, M.kill_terminal, "Kill current terminal")
     set_keymap("n", maps.rename, function()
       vim.ui.input({ prompt = "New terminal name: " }, function(name)
         if name then
-          api.rename_terminal(name)
+          M.rename_terminal(name)
         end
       end)
     end, "Rename current terminal")
@@ -132,7 +132,7 @@ local function setup_keymaps()
 end
 
 -- Function for opening file in original window
-function api.open_file_in_original_win()
+function M.open_file_in_original_win()
   local original_win = ui.get_original_window()
   local filename = vim.fn.expand "<cfile>"
 
@@ -157,7 +157,7 @@ function api.open_file_in_original_win()
 end
 
 ---Open to pytest function or line:col in original window
-function api.gF_to_original_win()
+function M.gF_to_original_win()
   local original_win = ui.get_original_window()
   local filename, pytest_parts = utils.extract_pytest_path_from_line()
 
@@ -187,7 +187,7 @@ function api.gF_to_original_win()
 end
 
 ---Set keymaps when a terminal buffer is active
-function api.setup_terminal_keymaps()
+function M.setup_terminal_keymaps()
   local bufnr = vim.api.nvim_get_current_buf()
 
   -- Only set keymaps if this is actually a terminal buffer
@@ -223,11 +223,11 @@ function api.setup_terminal_keymaps()
 end
 
 ---Initialize the terminal manager
-function api.setup()
+function M.setup()
   state.init()
   ui.setup()
   setup_keymaps()
-  api.setup_terminal_keymaps()
+  M.setup_terminal_keymaps()
 
   -- Set up autocommands for terminal management
   vim.api.nvim_create_autocmd("TermClose", {
@@ -259,7 +259,7 @@ function api.setup()
             local current_buf = vim.api.nvim_get_current_buf()
             if current_buf == ev.buf then
               vim.opt_local.laststatus = 0 -- Hide status line in terminal buffers
-              api.setup_terminal_keymaps()
+              M.setup_terminal_keymaps()
             end
           end
         end)
@@ -278,7 +278,7 @@ function api.setup()
         vim.schedule(function()
           if vim.api.nvim_buf_is_valid(ev.buf) then
             vim.opt_local.laststatus = 0 -- Hide status line in terminal buffers
-            api.setup_terminal_keymaps()
+            M.setup_terminal_keymaps()
           end
         end)
       end
@@ -286,4 +286,4 @@ function api.setup()
   })
 end
 
-return api
+return M
