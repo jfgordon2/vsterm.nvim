@@ -1,6 +1,7 @@
 local config = require "vsterm.config"
 local state = require "vsterm.state"
 local ui = require "vsterm.ui"
+local utils = require "vsterm.utils"
 
 local api = {}
 
@@ -75,6 +76,11 @@ end
 ---@param new_name string New name for the terminal
 ---@param term_id number|nil Terminal ID to rename (current if nil)
 function api.rename_terminal(new_name, term_id)
+  term_id = term_id or state.get_current_terminal()
+  if not term_id then
+    vim.notify("No terminal to rename", vim.log.levels.WARN)
+    return
+  end
   state.rename_terminal(term_id or state.get_current_terminal(), new_name)
   ui.refresh()
 end
@@ -125,113 +131,63 @@ local function setup_keymaps()
   end
 end
 
-local function is_valid_file(filename)
-  if not filename or filename == "" then
-    return false
+-- Function for opening file in original window
+function api.open_file_in_original_win()
+  local original_win = ui.get_original_window()
+  local filename = vim.fn.expand "<cfile>"
+
+  if filename == "" then
+    return
   end
-  local ok, stat = pcall(vim.uv.fs_stat, filename)
-  return ok and stat and stat.type == "file"
+
+  if not utils.is_valid_file(filename) then
+    vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
+    return
+  end
+
+  if not original_win or not vim.api.nvim_win_is_valid(original_win) then
+    -- Find the first non-terminal window as fallback
+    original_win = utils.get_first_non_terminal_window()
+  end
+
+  if original_win and vim.api.nvim_win_is_valid(original_win) then
+    vim.api.nvim_set_current_win(original_win)
+    vim.cmd("edit " .. vim.fn.fnameescape(filename))
+  end
 end
 
----Setup terminal buffer specific keymaps
-local function setup_terminal_buffer_keymaps()
-  -- Function for opening file in original window
-  function api.open_file_in_original_win()
-    local ui = require "vsterm.ui"
-    local original_win = ui.get_original_window()
-    local filename = vim.fn.expand "<cfile>"
+---Open to pytest function or line:col in original window
+function api.gF_to_original_win()
+  local original_win = ui.get_original_window()
+  local filename, pytest_parts = utils.extract_pytest_path_from_line()
 
-    if filename == "" then
-      return
-    end
-
-    if not is_valid_file(filename) then
-      vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
-      return
-    end
-
-    if not original_win or not vim.api.nvim_win_is_valid(original_win) then
-      -- Find the first non-terminal window as fallback
-      local wins = vim.api.nvim_list_wins()
-      for _, win in ipairs(wins) do
-        if vim.api.nvim_win_is_valid(win) then
-          local buf = vim.api.nvim_win_get_buf(win)
-          local buftype = vim.api.nvim_get_option_value("buftype", { buf = buf })
-          if buftype ~= "terminal" and buftype ~= "nofile" then
-            original_win = win
-            break
-          end
-        end
-      end
-    end
-
-    if original_win and vim.api.nvim_win_is_valid(original_win) then
-      vim.api.nvim_set_current_win(original_win)
-      vim.cmd("edit " .. vim.fn.fnameescape(filename))
-    end
+  if filename == nil then
+    return
   end
 
-  -- Function for opening file with line number in original window
-  function api.open_file_with_line_in_original_win()
-    local ui = require "vsterm.ui"
-    local original_win = ui.get_original_window()
+  if not utils.is_valid_file(filename) then
+    vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
+    return
+  end
 
-    -- Extract filename and line number
-    local filename = vim.fn.expand "<cfile>"
-    local line = vim.fn.getline "."
-    local cword = vim.fn.expand "<cWORD>"
+  if not original_win or not vim.api.nvim_win_is_valid(original_win) then
+    -- Find the first non-terminal window as fallback
+    original_win = utils.get_first_non_terminal_window()
+  end
 
-    if filename == "" then
-      return
-    end
-
-    if not is_valid_file(filename) then
-      vim.notify("File does not exist: " .. filename, vim.log.levels.ERROR)
-      return
-    end
-
-    -- Look for line_num immediately after the filename in line
-    local line_num = nil
-    local path_end = line:find(filename)
-    if path_end then
-      local rest_of_line = line:sub(path_end + #filename + 1)
-      -- Check if the next character is a colon followed by digits
-      local colon_pos = rest_of_line:find ":"
-      if colon_pos then
-        local num_str = rest_of_line:sub(0, colon_pos):match "^%d+"
-        if num_str then
-          line_num = tonumber(num_str)
-        end
-      end
-    end
-
-    if not original_win or not vim.api.nvim_win_is_valid(original_win) then
-      -- Find the first non-terminal window as fallback
-      local wins = vim.api.nvim_list_wins()
-      for _, win in ipairs(wins) do
-        if vim.api.nvim_win_is_valid(win) then
-          local buf = vim.api.nvim_win_get_buf(win)
-          local buftype = vim.api.nvim_get_option_value("buftype", { buf = buf })
-          if buftype ~= "terminal" and buftype ~= "nofile" then
-            original_win = win
-            break
-          end
-        end
-      end
-    end
-
-    if original_win and vim.api.nvim_win_is_valid(original_win) then
-      vim.api.nvim_set_current_win(original_win)
-      vim.cmd("edit " .. vim.fn.fnameescape(filename))
-      if line_num then
-        vim.api.nvim_win_set_cursor(original_win, { line_num, 0 })
-      end
+  if original_win and vim.api.nvim_win_is_valid(original_win) then
+    if pytest_parts and #pytest_parts > 0 then
+      -- If pytest parts are provided, open the file at the specified function
+      utils.open_file_at_window_and_pytest_function(original_win, filename, pytest_parts)
+    else
+      local _, line_num, col_num = utils.extract_line_and_column_from_line()
+      utils.open_file_at_window(original_win, filename, line_num, col_num)
     end
   end
 end
 
 ---Set keymaps when a terminal buffer is active
-function api.set_terminal_keymaps()
+function api.setup_terminal_keymaps()
   local bufnr = vim.api.nvim_get_current_buf()
 
   -- Only set keymaps if this is actually a terminal buffer
@@ -246,7 +202,7 @@ function api.set_terminal_keymaps()
     vim.keymap.set(
       "n",
       "gF",
-      "<cmd>lua require('vsterm.api').open_file_with_line_in_original_win()<CR>",
+      "<cmd>lua require('vsterm.api').gF_to_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file with line in original window" }
     )
 
@@ -260,7 +216,7 @@ function api.set_terminal_keymaps()
     vim.keymap.set(
       "t",
       "gF",
-      "<C-\\><C-n>:lua require('vsterm.api').open_file_with_line_in_original_win()<CR>",
+      "<C-\\><C-n>:lua require('vsterm.api').gF_to_original_win()<CR>",
       { buffer = bufnr, noremap = true, silent = true, desc = "Open file with line in original window" }
     )
   end
@@ -271,7 +227,7 @@ function api.setup()
   state.init()
   ui.setup()
   setup_keymaps()
-  setup_terminal_buffer_keymaps()
+  api.setup_terminal_keymaps()
 
   -- Set up autocommands for terminal management
   vim.api.nvim_create_autocmd("TermClose", {
@@ -302,7 +258,8 @@ function api.setup()
           if vim.api.nvim_buf_is_valid(ev.buf) then
             local current_buf = vim.api.nvim_get_current_buf()
             if current_buf == ev.buf then
-              api.set_terminal_keymaps()
+              vim.opt_local.laststatus = 0 -- Hide status line in terminal buffers
+              api.setup_terminal_keymaps()
             end
           end
         end)
@@ -320,7 +277,8 @@ function api.setup()
         -- Set up the terminal-specific keymaps
         vim.schedule(function()
           if vim.api.nvim_buf_is_valid(ev.buf) then
-            api.set_terminal_keymaps()
+            vim.opt_local.laststatus = 0 -- Hide status line in terminal buffers
+            api.setup_terminal_keymaps()
           end
         end)
       end
