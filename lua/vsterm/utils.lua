@@ -51,7 +51,7 @@ function M.extract_pytest_path_from_line()
   return filename, parts
 end
 
---- Get line and colun number from the current line
+--- Get line and column number from the current line
 ---@return string|nil filename
 ---@return number|nil line_number
 ---@return number|nil column_number

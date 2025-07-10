@@ -62,7 +62,6 @@ local function ensure_terminal_buffer(term)
     vim.api.nvim_set_current_win(main_win)
 
     -- Start terminal in the fresh buffer
-    -- term.job_id = vim.fn.termopen(config.options.shell or vim.o.shell)
     term.job_id = vim.fn.jobstart(config.options.shell or vim.o.shell, {
       on_exit = function(_, code)
         if code ~= 0 then

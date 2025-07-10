@@ -81,7 +81,7 @@ function M.rename_terminal(new_name, term_id)
     vim.notify("No terminal to rename", vim.log.levels.WARN)
     return
   end
-  state.rename_terminal(term_id or state.get_current_terminal(), new_name)
+  state.rename_terminal(term_id, new_name)
   ui.refresh()
 end
 
