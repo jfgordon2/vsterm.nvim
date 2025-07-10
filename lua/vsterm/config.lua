@@ -4,10 +4,7 @@ local M = {}
 ---@field height number Height of the terminal window (percentage of total height)
 ---@field default_name string Default name format for new terminals
 ---@field shell string|nil Shell to use (nil for default)
----@field direction "horizontal"|"vertical" Direction to split the terminal
----@field position "bottom"|"top"|"left"|"right" Position of the terminal window
 ---@field list_width number Width of the terminal list (in characters)
----@field auto_scroll boolean Automatically scroll to bottom on terminal output
 ---@field enable_mouse boolean Enable mouse support for terminal list
 ---@field number_prefix string|nil Key prefix for number-based terminal switching
 ---@field mappings table<string, string|function> Custom key mappings
@@ -17,10 +14,7 @@ M.options = {
   height = 0.3, -- 30% of window height
   default_name = "Terminal %d",
   shell = nil,
-  direction = "horizontal",
-  position = "bottom",
   list_width = 25,
-  auto_scroll = true,
   enable_mouse = true,
   number_prefix = "<leader>v",
   mappings = {
@@ -49,4 +43,3 @@ function M.setup(opts)
 end
 
 return M
-

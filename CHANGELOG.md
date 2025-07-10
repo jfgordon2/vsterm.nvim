@@ -4,6 +4,10 @@
 
 - Added gf/gF support to open files in the originating window instead of the terminal buffer
 
+### 2025-07-10
+
+- Updated gF to support lookup of pytest formatted paths (e.g. `tests/test_example.py::TestClass::test_method`)
+
 ## Usage
 
 ### Quick Setup

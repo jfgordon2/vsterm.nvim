@@ -40,6 +40,7 @@ local function apply_window_options(win)
   pcall(vim.api.nvim_set_option_value, "signcolumn", "no", { win = win })
   pcall(vim.api.nvim_set_option_value, "foldcolumn", "0", { win = win })
   pcall(vim.api.nvim_set_option_value, "wrap", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "statusline", "", { win = win, scope = "local" })
 end
 
 ---Create or update terminal buffer in main window
@@ -61,7 +62,14 @@ local function ensure_terminal_buffer(term)
     vim.api.nvim_set_current_win(main_win)
 
     -- Start terminal in the fresh buffer
-    term.job_id = vim.fn.termopen(config.options.shell or vim.o.shell)
+    term.job_id = vim.fn.jobstart(config.options.shell or vim.o.shell, {
+      on_exit = function(_, code)
+        if code ~= 0 then
+          vim.notify("Terminal exited with code " .. code, vim.log.levels.WARN)
+        end
+      end,
+      term = true,
+    })
     term.bufnr = bufnr
 
     -- Set buffer options
@@ -70,13 +78,15 @@ local function ensure_terminal_buffer(term)
 
     -- Set up terminal-specific keymaps
     local api = require "vsterm.api"
-    api.set_terminal_keymaps()
+    api.setup_terminal_keymaps()
 
     -- Go back to original window
     vim.api.nvim_set_current_win(old_win)
   else
     -- Set window to use the existing terminal buffer
-    vim.api.nvim_win_set_buf(main_win, term.bufnr)
+    if main_win then
+      vim.api.nvim_win_set_buf(main_win, term.bufnr)
+    end
   end
 end
 
