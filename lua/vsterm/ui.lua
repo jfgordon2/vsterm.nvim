@@ -3,19 +3,93 @@ local state = require "vsterm.state"
 
 local M = {}
 
-local main_win = nil
-local term_list_win = nil
-local term_list_buf = nil
-local original_win = nil -- Store the window we came from
-local help_win = nil
-local help_buf = nil
+-- Centralized window state
+local windows = {
+  main = nil,
+  term_list = nil,
+  help = nil,
+  original = nil,
+  last_height = nil, -- Store the last height of the terminal window
+  last_list_width = nil, -- Store the last width of the terminal list window
+}
+
+local buffers = {
+  term_list = nil,
+  help = nil,
+}
+
+---Apply options for main terminal window
+---@param win number Window ID
+local function apply_main_window_options(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+
+  pcall(vim.api.nvim_set_option_value, "number", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "relativenumber", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "signcolumn", "no", { win = win })
+  pcall(vim.api.nvim_set_option_value, "foldcolumn", "0", { win = win })
+  pcall(vim.api.nvim_set_option_value, "wrap", true, { win = win })
+  pcall(vim.api.nvim_set_option_value, "statusline", "", { win = win, scope = "local" })
+  pcall(vim.api.nvim_set_option_value, "winfixheight", true, { win = win })
+end
+
+---Apply options for terminal list window
+---@param win number Window ID
+local function apply_list_window_options(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+
+  pcall(vim.api.nvim_set_option_value, "number", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "relativenumber", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "signcolumn", "no", { win = win })
+  pcall(vim.api.nvim_set_option_value, "foldcolumn", "0", { win = win })
+  pcall(vim.api.nvim_set_option_value, "wrap", true, { win = win })
+  pcall(vim.api.nvim_set_option_value, "statusline", "", { win = win, scope = "local" })
+  pcall(vim.api.nvim_set_option_value, "cursorline", true, { win = win })
+  pcall(vim.api.nvim_set_option_value, "winfixwidth", true, { win = win })
+end
+
+---Apply options for help window
+---@param win number Window ID
+local function apply_help_window_options(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+
+  pcall(vim.api.nvim_set_option_value, "number", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "relativenumber", false, { win = win })
+  pcall(vim.api.nvim_set_option_value, "signcolumn", "no", { win = win })
+  pcall(vim.api.nvim_set_option_value, "foldcolumn", "0", { win = win })
+  pcall(vim.api.nvim_set_option_value, "wrap", true, { win = win })
+  pcall(vim.api.nvim_set_option_value, "statusline", "", { win = win, scope = "local" })
+  pcall(vim.api.nvim_set_option_value, "cursorline", true, { win = win })
+end
+
+---Check if all required windows are valid
+---@return boolean|nil
+local function are_windows_valid()
+  return windows.main
+    and vim.api.nvim_win_is_valid(windows.main)
+    and windows.term_list
+    and vim.api.nvim_win_is_valid(windows.term_list)
+end
+
+---Clean up invalid window references
+local function cleanup_invalid_windows()
+  for name, win in pairs(windows) do
+    if win and not vim.api.nvim_win_is_valid(win) then
+      windows[name] = nil
+    end
+  end
+end
 
 ---Focus the main terminal window and start insert mode
 ---@param term_id number|nil Terminal ID to focus (current if nil)
 function M.focus_terminal(term_id)
-  main_win = M.get_main_window()
-  if main_win and vim.api.nvim_win_is_valid(main_win) then
-    vim.api.nvim_set_current_win(main_win)
+  if windows.main and vim.api.nvim_win_is_valid(windows.main) then
+    vim.api.nvim_set_current_win(windows.main)
 
     -- Start insert mode if we're in a terminal
     local current_id = term_id or state.get_current_terminal()
@@ -28,38 +102,23 @@ function M.focus_terminal(term_id)
   end
 end
 
----Apply standardized window options
----@param win number Window ID
-local function apply_window_options(win)
-  if not win or not vim.api.nvim_win_is_valid(win) then
-    return
-  end
-
-  pcall(vim.api.nvim_set_option_value, "number", false, { win = win })
-  pcall(vim.api.nvim_set_option_value, "relativenumber", false, { win = win })
-  pcall(vim.api.nvim_set_option_value, "signcolumn", "no", { win = win })
-  pcall(vim.api.nvim_set_option_value, "foldcolumn", "0", { win = win })
-  pcall(vim.api.nvim_set_option_value, "wrap", false, { win = win })
-  pcall(vim.api.nvim_set_option_value, "statusline", "", { win = win, scope = "local" })
-end
-
 ---Create or update terminal buffer in main window
 ---@param term Terminal Terminal object
 local function ensure_terminal_buffer(term)
   if
     (not term.bufnr or not vim.api.nvim_buf_is_valid(term.bufnr))
-    and main_win
-    and vim.api.nvim_win_is_valid(main_win)
+    and windows.main
+    and vim.api.nvim_win_is_valid(windows.main)
   then
     -- Create a fresh buffer for the terminal
     local bufnr = vim.api.nvim_create_buf(false, true)
 
     -- Set the buffer in the main window first
-    vim.api.nvim_win_set_buf(main_win, bufnr)
+    vim.api.nvim_win_set_buf(windows.main, bufnr)
 
     -- Switch to main window to start terminal
     local old_win = vim.api.nvim_get_current_win()
-    vim.api.nvim_set_current_win(main_win)
+    vim.api.nvim_set_current_win(windows.main)
 
     -- Start terminal in the fresh buffer
     term.job_id = vim.fn.jobstart(config.options.shell or vim.o.shell, {
@@ -76,6 +135,9 @@ local function ensure_terminal_buffer(term)
     vim.api.nvim_set_option_value("bufhidden", "hide", { buf = term.bufnr })
     vim.api.nvim_set_option_value("buflisted", false, { buf = term.bufnr })
 
+    -- Apply window options
+    apply_main_window_options(windows.main)
+
     -- Set up terminal-specific keymaps
     local api = require "vsterm.api"
     api.setup_terminal_keymaps()
@@ -84,8 +146,9 @@ local function ensure_terminal_buffer(term)
     vim.api.nvim_set_current_win(old_win)
   else
     -- Set window to use the existing terminal buffer
-    if main_win then
-      vim.api.nvim_win_set_buf(main_win, term.bufnr)
+    if windows.main then
+      vim.api.nvim_win_set_buf(windows.main, term.bufnr)
+      apply_main_window_options(windows.main)
     end
   end
 end
@@ -116,6 +179,22 @@ local function setup_terminal_keymaps()
   end
 end
 
+---Create terminal list buffer
+local function create_terminal_list_buffer()
+  if not buffers.term_list or not vim.api.nvim_buf_is_valid(buffers.term_list) then
+    buffers.term_list = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buffers.term_list, "VSterm List")
+
+    -- Set list buffer options
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = buffers.term_list })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = buffers.term_list })
+    vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buffers.term_list })
+    vim.api.nvim_set_option_value("filetype", "vsterm", { buf = buffers.term_list })
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buffers.term_list })
+  end
+  return buffers.term_list
+end
+
 ---Get terminal at current line in terminal list
 ---@return number|nil terminal_id
 local function get_terminal_at_line(line_num)
@@ -129,7 +208,7 @@ end
 
 ---Setup keymaps for terminal list
 local function setup_terminal_list_keymaps()
-  if not term_list_buf then
+  if not buffers.term_list then
     return
   end
 
@@ -137,7 +216,7 @@ local function setup_terminal_list_keymaps()
   if config.options.enable_mouse then
     vim.keymap.set("n", "<LeftMouse>", function()
       local mouse = vim.fn.getmousepos()
-      if mouse.winid == term_list_win then
+      if mouse.winid == windows.term_list then
         local term_id = get_terminal_at_line(mouse.line)
         if term_id then
           state.set_current_terminal(term_id)
@@ -145,7 +224,7 @@ local function setup_terminal_list_keymaps()
           M.focus_terminal(term_id)
         end
       end
-    end, { buffer = term_list_buf, silent = true })
+    end, { buffer = buffers.term_list, silent = true })
   end
 
   -- Keyboard shortcuts
@@ -156,7 +235,7 @@ local function setup_terminal_list_keymaps()
       M.refresh()
       M.focus_terminal(term_id)
     end
-  end, { buffer = term_list_buf, silent = true })
+  end, { buffer = buffers.term_list, silent = true })
 
   vim.keymap.set("n", "d", function()
     local term_id = get_terminal_at_line()
@@ -164,7 +243,7 @@ local function setup_terminal_list_keymaps()
       local api = require "vsterm.api"
       api.kill_terminal(term_id)
     end
-  end, { buffer = term_list_buf, silent = true })
+  end, { buffer = buffers.term_list, silent = true })
 
   vim.keymap.set("n", "r", function()
     local term_id = get_terminal_at_line()
@@ -176,16 +255,16 @@ local function setup_terminal_list_keymaps()
         end
       end)
     end
-  end, { buffer = term_list_buf, silent = true })
+  end, { buffer = buffers.term_list, silent = true })
 
   vim.keymap.set("n", "n", function()
     local api = require "vsterm.api"
     api.create_terminal()
-  end, { buffer = term_list_buf, silent = true })
+  end, { buffer = buffers.term_list, silent = true })
 
   vim.keymap.set("n", "?", function()
     M.show_help()
-  end, { buffer = term_list_buf, silent = true })
+  end, { buffer = buffers.term_list, silent = true })
 end
 
 ---Create the main terminal window layout
@@ -193,14 +272,19 @@ local function create_layout()
   -- Save current window
   local current_win = vim.api.nvim_get_current_win()
 
-  -- Calculate dimensions
-  local ui_height = math.floor(vim.o.lines * config.options.height)
+  -- Calculate dimensions - use stored height if available, otherwise use config default
+  local ui_height
+  if windows.last_height then
+    ui_height = windows.last_height
+  else
+    ui_height = math.floor(vim.o.lines * config.options.height)
+  end
 
   -- Step 1: Create bottom horizontal split
   vim.cmd(string.format("botright %dsplit", ui_height))
 
-  -- Immediately set a named buffer to avoid scratch label
-  local main_tmp_buf = vim.api.nvim_create_buf(true, false) -- Listed, not scratch
+  -- Set a named buffer
+  local main_tmp_buf = vim.api.nvim_create_buf(true, false)
   vim.api.nvim_buf_set_name(main_tmp_buf, "VSterm Terminal")
   vim.api.nvim_set_option_value("buftype", "nowrite", { buf = main_tmp_buf })
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = main_tmp_buf })
@@ -210,43 +294,26 @@ local function create_layout()
   vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), main_tmp_buf)
 
   -- Step 2: Create vertical split, terminal on left, list on right
-  vim.cmd(string.format("rightbelow vertical %dsplit", config.options.list_width))
-  term_list_win = vim.api.nvim_get_current_win()
+  -- Use stored width if available, otherwise use config default
+  local list_width = windows.last_list_width or config.options.list_width
+  vim.cmd(string.format("rightbelow vertical %dsplit", list_width))
+  windows.term_list = vim.api.nvim_get_current_win()
 
-  -- Prevent the terminal list window from auto-resizing
-  vim.api.nvim_set_option_value("winfixwidth", true, { win = term_list_win })
-
-  -- Prepare terminal list buffer if not exist
+  -- Create and set terminal list buffer
+  local term_list_buf = create_terminal_list_buffer()
   if not term_list_buf or not vim.api.nvim_buf_is_valid(term_list_buf) then
-    term_list_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(term_list_buf, "VSterm List")
+    vim.notify("Failed to create terminal list buffer", vim.log.levels.ERROR)
+    return
   end
-
-  -- Set list buffer options
-  vim.api.nvim_set_option_value("buftype", "nofile", { buf = term_list_buf })
-  vim.api.nvim_set_option_value("swapfile", false, { buf = term_list_buf })
-  vim.api.nvim_set_option_value("bufhidden", "hide", { buf = term_list_buf })
-  vim.api.nvim_set_option_value("filetype", "vsterm", { buf = term_list_buf })
-  vim.api.nvim_set_option_value("modifiable", false, { buf = term_list_buf })
-
-  -- Set buffer in terminal list window
-  vim.api.nvim_win_set_buf(term_list_win, term_list_buf)
+  vim.api.nvim_win_set_buf(windows.term_list, term_list_buf)
 
   -- Back to terminal window
   vim.cmd "wincmd h"
-  main_win = vim.api.nvim_get_current_win()
+  windows.main = vim.api.nvim_get_current_win()
 
-  -- Prevent the terminal window from auto-resizing
-  vim.api.nvim_set_option_value("winfixheight", true, { win = main_win })
-
-  -- Apply window options to both windows
-  apply_window_options(term_list_win)
-  apply_window_options(main_win)
-
-  -- Special handling for terminal list
-  if vim.api.nvim_win_is_valid(term_list_win) then
-    pcall(vim.api.nvim_set_option_value, "cursorline", true, { win = term_list_win })
-  end
+  -- Apply window options
+  apply_main_window_options(windows.main)
+  apply_list_window_options(windows.term_list)
 
   -- Setup keymaps for terminal list
   setup_terminal_list_keymaps()
@@ -257,7 +324,7 @@ end
 
 ---Update the terminal list display
 local function update_term_list()
-  if not term_list_buf or not vim.api.nvim_buf_is_valid(term_list_buf) then
+  if not buffers.term_list or not vim.api.nvim_buf_is_valid(buffers.term_list) then
     return
   end
 
@@ -281,28 +348,23 @@ local function update_term_list()
     table.insert(lines, prefix .. term.name)
   end
 
-  vim.api.nvim_set_option_value("modifiable", true, { buf = term_list_buf })
-  vim.api.nvim_buf_set_lines(term_list_buf, 0, -1, false, lines)
-  vim.api.nvim_set_option_value("modifiable", false, { buf = term_list_buf })
+  vim.api.nvim_set_option_value("modifiable", true, { buf = buffers.term_list })
+  vim.api.nvim_buf_set_lines(buffers.term_list, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buffers.term_list })
 
   -- Move cursor to the current terminal line in the terminal list window
-  if term_list_win and vim.api.nvim_win_is_valid(term_list_win) then
-    vim.api.nvim_win_set_cursor(term_list_win, { current_terminal_line, 0 })
+  if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+    vim.api.nvim_win_set_cursor(windows.term_list, { current_terminal_line, 0 })
   end
 
   setup_terminal_keymaps()
-end
-
----Setup terminal UI
-function M.setup()
-  -- Nothing to do on initial setup
 end
 
 ---Show the terminal UI
 function M.show()
   if not state.is_visible() then
     -- Store the original window before creating layout
-    original_win = vim.api.nvim_get_current_win()
+    windows.original = vim.api.nvim_get_current_win()
 
     -- Create a terminal if none exists
     if #state.get_terminals() == 0 then
@@ -329,27 +391,39 @@ end
 
 ---Hide the terminal UI
 function M.hide()
-  if main_win and vim.api.nvim_win_is_valid(main_win) then
-    vim.api.nvim_win_close(main_win, true)
+  -- Store the current height before hiding
+  if windows.main and vim.api.nvim_win_is_valid(windows.main) then
+    windows.last_height = vim.api.nvim_win_get_height(windows.main)
   end
-  if term_list_win and vim.api.nvim_win_is_valid(term_list_win) then
-    vim.api.nvim_win_close(term_list_win, true)
+
+  -- Store the current list width before hiding
+  if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+    windows.last_list_width = vim.api.nvim_win_get_width(windows.term_list)
+  end
+
+  if windows.main and vim.api.nvim_win_is_valid(windows.main) then
+    vim.api.nvim_win_close(windows.main, true)
+  end
+  if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+    vim.api.nvim_win_close(windows.term_list, true)
   end
 
   -- Restore focus to the original window
-  if original_win and vim.api.nvim_win_is_valid(original_win) then
-    vim.api.nvim_set_current_win(original_win)
+  if windows.original and vim.api.nvim_win_is_valid(windows.original) then
+    vim.api.nvim_set_current_win(windows.original)
   end
 
-  main_win = nil
-  term_list_win = nil
-  original_win = nil
+  -- Clear window references
+  windows.main = nil
+  windows.term_list = nil
+  windows.original = nil
+  -- Note: we keep windows.last_height and windows.last_list_width to preserve them across hide/show cycles
 
   -- Clean up help window
-  if help_win and vim.api.nvim_win_is_valid(help_win) then
-    vim.api.nvim_win_close(help_win, true)
+  if windows.help and vim.api.nvim_win_is_valid(windows.help) then
+    vim.api.nvim_win_close(windows.help, true)
   end
-  help_win = nil
+  windows.help = nil
 
   state.set_visible(false)
 end
@@ -357,20 +431,29 @@ end
 ---Get the main terminal window ID
 ---@return number|nil
 function M.get_main_window()
-  return main_win
+  return windows.main
 end
 
 ---Get the original window
 ---@return number|nil
 function M.get_original_window()
-  return original_win
+  return windows.original
 end
 
 ---Set the original window
 ---@param win_id number Window ID
 function M.set_original_window(win_id)
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    original_win = win_id
+    windows.original = win_id
+  end
+end
+
+---Reset the stored terminal dimensions to use config defaults
+function M.reset_dimensions()
+  windows.last_height = nil
+  windows.last_list_width = nil
+  if state.is_visible() then
+    M.refresh()
   end
 end
 
@@ -380,16 +463,17 @@ function M.refresh()
     return
   end
 
-  local main_valid = main_win and vim.api.nvim_win_is_valid(main_win)
-  local term_list_valid = term_list_win and vim.api.nvim_win_is_valid(term_list_win)
+  if not are_windows_valid() then
+    cleanup_invalid_windows()
 
-  if not main_valid or not term_list_valid then
-    -- Clear invalid window refs
-    if main_win and not vim.api.nvim_win_is_valid(main_win) then
-      main_win = nil
+    -- Store current height before cleanup if main window exists
+    if windows.main and vim.api.nvim_win_is_valid(windows.main) then
+      windows.last_height = vim.api.nvim_win_get_height(windows.main)
     end
-    if term_list_win and not vim.api.nvim_win_is_valid(term_list_win) then
-      term_list_win = nil
+
+    -- Store current list width before cleanup if term_list window exists
+    if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+      windows.last_list_width = vim.api.nvim_win_get_width(windows.term_list)
     end
 
     -- Close windows showing terminal buffers or our terminal list buffer
@@ -408,36 +492,26 @@ function M.refresh()
       end
     end
 
-    -- Delete term_list_buf buffer if valid
-    if term_list_buf and vim.api.nvim_buf_is_valid(term_list_buf) then
-      pcall(vim.api.nvim_buf_delete, term_list_buf, { force = true })
-      term_list_buf = nil
+    -- Delete term_list buffer if valid
+    if buffers.term_list and vim.api.nvim_buf_is_valid(buffers.term_list) then
+      pcall(vim.api.nvim_buf_delete, buffers.term_list, { force = true })
+      buffers.term_list = nil
     end
 
     -- Recreate the layout fresh, but preserve the original_win
-    local saved_original_win = original_win
+    local saved_original_win = windows.original
     create_layout()
-    original_win = saved_original_win
+    windows.original = saved_original_win
     return
   end
 
-  -- Update terminal buffer and apply window options
+  -- Update terminal buffer
   local current_id = state.get_current_terminal()
-  if current_id and main_win and vim.api.nvim_win_is_valid(main_win) then
+  if current_id and windows.main and vim.api.nvim_win_is_valid(windows.main) then
     local term = state.get_terminal(current_id)
     if term then
       ensure_terminal_buffer(term)
     end
-    vim.api.nvim_set_option_value("winfixheight", true, { win = main_win })
-  end
-
-  if term_list_win and vim.api.nvim_win_is_valid(term_list_win) then
-    vim.api.nvim_set_option_value("winfixwidth", true, { win = term_list_win })
-    apply_window_options(term_list_win)
-  end
-
-  if main_win and vim.api.nvim_win_is_valid(main_win) then
-    apply_window_options(main_win)
   end
 
   update_term_list()
@@ -445,21 +519,21 @@ end
 
 ---Show help window with available keybindings
 function M.show_help()
-  if help_win and vim.api.nvim_win_is_valid(help_win) then
+  if windows.help and vim.api.nvim_win_is_valid(windows.help) then
     -- Help window is already open, close it
     M.close_help()
     return
   end
 
   -- Create help buffer if it doesn't exist
-  if not help_buf or not vim.api.nvim_buf_is_valid(help_buf) then
-    help_buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_name(help_buf, "VSterm Help")
-    vim.api.nvim_set_option_value("buftype", "nofile", { buf = help_buf })
-    vim.api.nvim_set_option_value("swapfile", false, { buf = help_buf })
-    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = help_buf })
-    vim.api.nvim_set_option_value("filetype", "help", { buf = help_buf })
-    vim.api.nvim_set_option_value("modifiable", false, { buf = help_buf })
+  if not buffers.help or not vim.api.nvim_buf_is_valid(buffers.help) then
+    buffers.help = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_name(buffers.help, "VSterm Help")
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = buffers.help })
+    vim.api.nvim_set_option_value("swapfile", false, { buf = buffers.help })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buffers.help })
+    vim.api.nvim_set_option_value("filetype", "help", { buf = buffers.help })
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buffers.help })
   end
 
   -- Help content
@@ -483,9 +557,9 @@ function M.show_help()
   }
 
   -- Set help content
-  vim.api.nvim_set_option_value("modifiable", true, { buf = help_buf })
-  vim.api.nvim_buf_set_lines(help_buf, 0, -1, false, help_lines)
-  vim.api.nvim_set_option_value("modifiable", false, { buf = help_buf })
+  vim.api.nvim_set_option_value("modifiable", true, { buf = buffers.help })
+  vim.api.nvim_buf_set_lines(buffers.help, 0, -1, false, help_lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buffers.help })
 
   -- Calculate window dimensions
   local width = 45
@@ -494,7 +568,7 @@ function M.show_help()
   local col = math.floor((vim.o.columns - width) / 2)
 
   -- Create floating window
-  help_win = vim.api.nvim_open_win(help_buf, true, {
+  windows.help = vim.api.nvim_open_win(buffers.help, true, {
     relative = "editor",
     width = width,
     height = height,
@@ -507,20 +581,19 @@ function M.show_help()
   })
 
   -- Set help window options
-  apply_window_options(help_win)
-  vim.api.nvim_set_option_value("cursorline", true, { win = help_win })
+  apply_help_window_options(windows.help)
 
   -- Set up keymaps to close help window
   local close_help_keys = { "q", "<Esc>", "?", "<CR>" }
   for _, key in ipairs(close_help_keys) do
     vim.keymap.set("n", key, function()
       M.close_help()
-    end, { buffer = help_buf, silent = true })
+    end, { buffer = buffers.help, silent = true })
   end
 
   -- Auto-close help window when user presses other keys
   vim.api.nvim_create_autocmd("BufLeave", {
-    buffer = help_buf,
+    buffer = buffers.help,
     once = true,
     callback = function()
       M.close_help()
@@ -530,14 +603,14 @@ end
 
 ---Close help window
 function M.close_help()
-  if help_win and vim.api.nvim_win_is_valid(help_win) then
-    vim.api.nvim_win_close(help_win, true)
+  if windows.help and vim.api.nvim_win_is_valid(windows.help) then
+    vim.api.nvim_win_close(windows.help, true)
   end
-  help_win = nil
+  windows.help = nil
 
   -- Return focus to terminal list window
-  if term_list_win and vim.api.nvim_win_is_valid(term_list_win) then
-    vim.api.nvim_set_current_win(term_list_win)
+  if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+    vim.api.nvim_set_current_win(windows.term_list)
   end
 end
 

@@ -108,6 +108,11 @@ function M.get_current_terminal()
   return id and state.get_terminal(id) or nil
 end
 
+---Reset terminal window dimensions to config defaults
+function M.reset_dimensions()
+  ui.reset_dimensions()
+end
+
 ---Setup terminal manager keymaps
 local function setup_keymaps()
   local function set_keymap(mode, lhs, rhs, desc)
@@ -225,7 +230,6 @@ end
 ---Initialize the terminal manager
 function M.setup()
   state.init()
-  ui.setup()
   setup_keymaps()
   M.setup_terminal_keymaps()
 

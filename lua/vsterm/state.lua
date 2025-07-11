@@ -7,7 +7,6 @@ local M = {}
 ---@field name string Display name
 ---@field bufnr number Neovim buffer number
 ---@field job_id number Terminal job ID
----@field win_id number|nil Window ID when visible
 ---@field cwd string|nil Working directory of the terminal
 
 -- Internal state
@@ -40,7 +39,6 @@ function M.create_terminal(name)
     name = term_name,
     bufnr = nil, -- Will be created when terminal is shown
     job_id = nil, -- Will be set when terminal is activated
-    win_id = nil,
     cwd = vim.fn.getcwd(),
   }
 
@@ -139,16 +137,6 @@ end
 ---@param visible boolean
 function M.set_visible(visible)
   state.visible = visible
-end
-
----Set window ID for a terminal
----@param id number Terminal ID
----@param win_id number|nil Window ID
-function M.set_window(id, win_id)
-  local term = state.terminals[id]
-  if term then
-    term.win_id = win_id
-  end
 end
 
 ---Clean up terminal state without buffer deletion (for TermClose events)

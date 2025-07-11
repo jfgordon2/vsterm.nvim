@@ -7,6 +7,7 @@
 ### 2025-07-10
 
 - Updated gF to support lookup of pytest formatted paths (e.g. `tests/test_example.py::TestClass::test_method`)
+- Maintain height and width that the user left at when hidden upon restore
 
 ## Usage
 

@@ -19,6 +19,7 @@ function M.setup(opts)
   M.switch_terminal = api.switch_terminal
   M.get_terminals = api.get_terminals
   M.get_current_terminal = api.get_current_terminal
+  M.reset_dimensions = api.reset_dimensions
 end
 
 return M
