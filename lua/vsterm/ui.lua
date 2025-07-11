@@ -63,7 +63,9 @@ local function set_term_list_width()
     then
       width = windows.last_list_width
     end
-    vim.api.nvim_win_set_width(windows.term_list, width)
+    if width then
+      vim.api.nvim_win_set_width(windows.term_list, width)
+    end
   end
 end
 
