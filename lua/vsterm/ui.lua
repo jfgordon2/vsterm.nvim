@@ -51,6 +51,22 @@ local function apply_list_window_options(win)
   pcall(vim.api.nvim_set_option_value, "winfixwidth", true, { win = win })
 end
 
+---Explicitly set the terminal list window width
+local function set_term_list_width()
+  if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
+    local configured_width = config.options.list_width
+    local width = configured_width
+    if
+      windows.last_list_width
+      and windows.last_list_width >= math.floor(configured_width / 2)
+      and windows.last_list_width <= configured_width * 2
+    then
+      width = windows.last_list_width
+    end
+    vim.api.nvim_win_set_width(windows.term_list, width)
+  end
+end
+
 ---Apply options for help window
 ---@param win number Window ID
 local function apply_help_window_options(win)
@@ -268,6 +284,7 @@ local function setup_terminal_list_keymaps()
 end
 
 ---Create the main terminal window layout
+
 local function create_layout()
   -- Save current window
   local current_win = vim.api.nvim_get_current_win()
@@ -293,9 +310,16 @@ local function create_layout()
   vim.api.nvim_set_option_value("buflisted", false, { buf = main_tmp_buf })
   vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), main_tmp_buf)
 
-  -- Step 2: Create vertical split, terminal on left, list on right
-  -- Use stored width if available, otherwise use config default
-  local list_width = windows.last_list_width or config.options.list_width
+  -- Step 2: Use last_list_width for terminal list split if within bounds, else use configured width
+  local configured_width = config.options.list_width
+  local list_width = configured_width
+  if
+    windows.last_list_width
+    and windows.last_list_width >= math.floor(configured_width / 2)
+    and windows.last_list_width <= configured_width * 2
+  then
+    list_width = windows.last_list_width
+  end
   vim.cmd(string.format("rightbelow vertical %dsplit", list_width))
   windows.term_list = vim.api.nvim_get_current_win()
 
@@ -398,7 +422,12 @@ function M.hide()
 
   -- Store the current list width before hiding
   if windows.term_list and vim.api.nvim_win_is_valid(windows.term_list) then
-    windows.last_list_width = vim.api.nvim_win_get_width(windows.term_list)
+    local cur_width = vim.api.nvim_win_get_width(windows.term_list)
+    if cur_width < math.floor(config.options.list_width / 2) or cur_width > config.options.list_width * 2 then
+      windows.last_list_width = config.options.list_width
+    else
+      windows.last_list_width = cur_width
+    end
   end
 
   if windows.main and vim.api.nvim_win_is_valid(windows.main) then
@@ -417,7 +446,6 @@ function M.hide()
   windows.main = nil
   windows.term_list = nil
   windows.original = nil
-  -- Note: we keep windows.last_height and windows.last_list_width to preserve them across hide/show cycles
 
   -- Clean up help window
   if windows.help and vim.api.nvim_win_is_valid(windows.help) then
@@ -502,6 +530,7 @@ function M.refresh()
     local saved_original_win = windows.original
     create_layout()
     windows.original = saved_original_win
+    set_term_list_width()
     return
   end
 
@@ -515,6 +544,7 @@ function M.refresh()
   end
 
   update_term_list()
+  set_term_list_width()
 end
 
 ---Show help window with available keybindings
